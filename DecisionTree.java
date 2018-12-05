@@ -1,99 +1,206 @@
 import java.util.*;
 import java.io.*;
-class solution
+class Node
 {
-	static ArrayList<List<String>> readData(String fileName)
+	String name;
+	ArrayList<Node> edges;
+	Node(String n)
 	{
-		ArrayList<List<String>> data=new ArrayList<>();
-		try{
-			File f=new File(fileName);
-			Scanner sc=new Scanner(f);
-			while(sc.hasNext())
+		name=n;
+		edges=new ArrayList<Node>();
+	} 
+}
+class DecisionTree
+{
+	HashMap<String,ArrayList<String>> data=new HashMap<>();
+	HashMap<String,HashSet<String>> catg=new HashMap<>();
+	ArrayList<String> attr=new ArrayList<>();
+	String op;
+	DecisionTree(Scanner sc,int x)
+	{
+		int flg=0;
+		while(sc.hasNext())
+		{
+			String arr[]=sc.nextLine().split(",");
+			if(flg==0)
 			{
-				String str=sc.nextLine();
-				data.add(Arrays.asList(str.split(",")));
-			}
-		}catch(Exception e)
-		{
-			System.out.println(e);
-		}
-		return data;
-	}
-	static HashSet<String> getCategories(ArrayList<List<String>> data,int column)
-	{
-		HashSet<String> hs=new HashSet<>();
-		for(int i=1;i<data.size();i++)
-		{
-			hs.add(data.get(i).get(column));
-		}
-		return hs;
-	}
-	static double targetEntropy(List<String> data,HashSet<String> targetCategories)
-	{
-		HashMap<String,Integer> hmp=new HashMap<>();
-		for(String tmp:targetCategories)
-			hmp.put(tmp,0);
-		for(int i=0;i<data.size();i++)
-		{
-			hmp.put(data.get(i),hmp.get(data.get(i))+1);
-		}
-		double entropy=0.0;
-		for(String key:hmp.keySet())
-		{
-			entropy+=info(hmp.get(key),data.size());
-		}
-		return -1*entropy;
-	}
-	static double Entropy(List<List<String>> data,HashSet<String> targetCategories,int column,int targetColumn)
-	{
-		int arr[]=new int[data.size()+1];
-		double entropy=0.0;
-		for(int i=0;i<data.get(0).size();i++)
-		{
-			if(arr[i]!=0)
-				continue;
-			List<String> al=new ArrayList<>();
-			for(int j=i;j<data.size();j++)
-			{
-				if(data.get(i).get(column).equals(data.get(j).get(column)))
+				flg=1;
+				for(int i=0;i<arr.length;i++)
 				{
-					al.add(data.get(j).get(targetColumn));
-					arr[j]=1;
+					attr.add(arr[i]);
+					data.put(arr[i],new ArrayList<String>());
+					catg.put(arr[i],new HashSet<String>());
 				}
 			}
-			entropy+=targetEntropy(al,targetCategories)*(double)al.size()/(double)data.size();
+			else
+			{
+				for(int i=0;i<arr.length;i++)
+				{
+					String col=attr.get(i);
+					ArrayList<String> tmp=data.get(col);
+					tmp.add(arr[i]);
+					HashSet<String> hs=catg.get(col);
+					hs.add(arr[i]);
+					data.put(col,tmp);
+					catg.put(col,hs);
+				}
+			}
 		}
-		return entropy;
+		op=attr.get(x);
 	}
-	static double info(double x,double y)
+	DecisionTree(HashMap<String,ArrayList<String>> d,HashMap<String,HashSet<String>> hs,ArrayList<String> al,String op1)
 	{
-		return (x/y)*Math.log(x/y)/Math.log(2);
+		data=d;
+		catg=hs;
+		attr=al;
+		op=op1;
 	}
-	static ArrayList buildDecisionTree(ArrayList<List<String>> data,HashSet<String> targetCategories,int targetColumn)
+	boolean check()
 	{
-		List<String> targetCol=new ArrayList<>();
-		for(List<String> l:data.subList(1,data.size()))
-			targetCol.add(l.get(targetColumn));
-		double targetEntro=targetEntropy(targetCol,targetCategories);
-		System.out.println(targetEntro);
-		for(int i=0;i<data.get(0).size();i++)
+		boolean ans=true;
+		for(int i=1;i<data.get(op).size();i++)
 		{
-			System.out.print(data.get(0).get(i)+" -> ");
-			System.out.println(targetEntro - Entropy(data.subList(1,data.size()),targetCategories,i,targetColumn));
+			if(data.get(op).get(i).equals(data.get(op).get(i-1)))
+				continue;
+			ans=false;
+			break;
 		}
-		return null;
+		return ans;
+	}
+	static double entropy(ArrayList<Double> args)
+	{
+		double sum=0;
+		for(double d:args)
+			sum+=d;
+		double entro=0;
+		for(double d:args)
+		{
+			if(d==0)
+				continue;
+			entro+=-1*(d/sum)*Math.log(d/sum)/Math.log(2);
+		}
+		return entro;
+	}
+	double infoGain(String atr)
+	{
+		HashMap<String,HashMap<String,Integer>> hmp=new HashMap<>();
+		for(String str:catg.get(atr))
+		{
+			HashMap<String,Integer> tmp=new HashMap<>();
+			for(String str2:catg.get(op))
+				tmp.put(str2,0);
+			hmp.put(str,tmp);
+		}
+		for(int i=0;i<data.get(atr).size();i++)
+		{
+			HashMap<String,Integer> tmp=hmp.get(data.get(atr).get(i));
+			tmp.put(data.get(op).get(i),1+tmp.get(data.get(op).get(i)));
+			hmp.put(data.get(atr).get(i),tmp);
+		}
+		double sum=0;
+		for(String str:hmp.keySet())
+		{
+			ArrayList<Double> all=new ArrayList<>();
+			double x=0,y=0;
+			for(String str2:hmp.get(str).keySet())
+			{
+				all.add((double)hmp.get(str).get(str2));
+				x+=(double)hmp.get(str).get(str2);
+			}
+			y=entropy(all);
+			sum+=(x/data.get(op).size())*y;
+		}
+		//System.out.println(atr+" "+hmp);
+		return sum;
+	}
+	Node build(HashSet<String> used,int n,int lvl)
+	{
+		if(check())
+		{
+			//System.out.println(data.get(op).get(0)+" "+lvl);
+			return new Node(data.get(op).get(0));
+		}
+		if(used.size()==n)
+		{
+			//System.out.println("yes/no "+lvl);
+			return new Node("yes/no");
+		}
+		String answer="";
+		double info=2;
+		//System.out.println(used);
+		for(int i=0;i<attr.size();i++)
+		{
+			if(used.contains(attr.get(i)))
+				continue;
+			double tmp=infoGain(attr.get(i));
+			//System.out.println(tmp+" "+attr.get(i));
+			if(tmp<=info)
+			{
+				info=tmp;
+				answer=attr.get(i);
+			}
+		}
+		Node ng=new Node(answer);
+		used.add(answer);
+		//System.out.println(answer+" "+lvl);
+		for(String str:catg.get(answer))
+		{
+			HashMap<String,ArrayList<String>> hmp=new HashMap<>();
+			for(String str2:attr)
+			{
+				ArrayList<String> al=new ArrayList<>();
+				for(int i=0;i<data.get(str2).size();i++)
+				{
+					if(data.get(answer).get(i).equals(str))
+					{
+						al.add(data.get(str2).get(i));
+					}
+				}
+				if(al.size()==0)
+					break;
+				hmp.put(str2,al);
+			}
+			if(hmp.keySet().size()==0)
+				continue;
+			//System.out.println(str+" -> "+lvl);
+			DecisionTree dt=new DecisionTree(hmp,catg,attr,op);
+			Node ng1=new Node(str);
+			ng1.edges.add(dt.build(used,n,lvl+1));
+			ng.edges.add(ng1);
+		}
+		return ng;
+	}
+}
+class solution
+{
+	static void printTree(Node ng,String str)
+	{
+		String str1=str+"->"+ng.name;
+		for(int i=0;i<ng.edges.size();i++)
+		{
+			printTree(ng.edges.get(i),str1);
+		}
+		if(ng.edges.size()==0)
+			System.out.println(str1);
 	}
 	public static void main(String []args)
 	{
-			Scanner sc=new Scanner(System.in);
-			System.out.println("enter the file name:-");
-			String fileName=sc.next();
-			ArrayList<List<String>> data=readData(fileName);
-			List<String> header=data.get(0);
-			System.out.println("enter target class name");
-			String target=sc.next();
-			int targetColumn=header.indexOf(target);
-			HashSet<String> targetCategories=getCategories(data,targetColumn);
-			buildDecisionTree(data,targetCategories,targetColumn);
+		Scanner sc=new Scanner(System.in);
+		String file=sc.next();
+		int col=sc.nextInt();
+		try
+		{
+			File f=new File(file);
+			Scanner sc1=new Scanner(f);
+			DecisionTree dt=new DecisionTree(sc1,col);
+			HashSet<String> al=new HashSet<>();
+			al.add(dt.op);
+			Node tree=dt.build(al,dt.attr.size()-1,1);
+			printTree(tree,"");
+			
+		}catch(Exception e)
+		{
+			e.printStackTrace();
+		}
 	}
 }
